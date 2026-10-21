@@ -1,0 +1,23 @@
+name: fairseq-py312
+channels:
+  - pytorch
+  - nvidia
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.12
+  - pip
+  - setuptools<70.0.0
+  - wheel
+  - cython
+  - numpy=1.26.4
+  - pytorch>=2.2.0
+  - torchaudio
+  - pip:
+      - sentencepiece
+      - soundfile
+      - sacrebleu
+      - joblib
+      - ipykernel
+      - editdistance
+      - tensorboardX
