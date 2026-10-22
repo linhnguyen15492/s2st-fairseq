@@ -4,6 +4,7 @@
 # LICENSE file in the root directory of this source tree.
 """isort:skip_file"""
 
+import dataclasses
 import logging
 from hydra.core.config_store import ConfigStore
 from fairseq.dataclass.configs import FairseqConfig
@@ -18,8 +19,12 @@ def hydra_init(cfg_name="config") -> None:
     cs = ConfigStore.instance()
     cs.store(name=f"{cfg_name}", node=FairseqConfig)
 
-    for k in FairseqConfig.__dataclass_fields__:
-        v = FairseqConfig.__dataclass_fields__[k].default
+    for k, f in FairseqConfig.__dataclass_fields__.items():
+        v = f.default
+        if v is dataclasses.MISSING and f.default_factory is not dataclasses.MISSING:
+            v = f.default_factory()
+        elif v is dataclasses.MISSING:
+            continue
         try:
             cs.store(name=k, node=v)
         except BaseException:
