@@ -4,6 +4,7 @@
 
 * **Ngày thực hiện:** 26/10/2026
 * **Đối tượng phân tích:** Luồng huấn luyện và suy luận mô hình S2UT trong notebook Kaggle (`s2st_fairseq_demo.ipynb`) đối chiếu với tài liệu gốc bài báo ([Lee et al., 2021](https://arxiv.org/abs/2107.05604)) và tài liệu kỹ thuật [`direct_s2st_discrete_units.md`](file:///d:/workspace/s2st-fairseq/direct_s2st_discrete_units.md).
+* **Notebook khắc phục:** Toàn bộ giải pháp trong Mục 4 đã được triển khai trong notebook **`s2st-fairseq.ipynb`** (xem Mục 6).
 * **Vấn đề ghi nhận từ Giảng viên:** *"Demo gốc của bài nghe khá rõ lời nói, còn demo em chạy lại trên kaggle thì nó rất khó nghe."*
 
 ---
