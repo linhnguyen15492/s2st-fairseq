@@ -4,6 +4,33 @@ Tất cả chỉnh sửa mã nguồn/notebook của dự án S2ST Fairseq đều
 
 ---
 
+## [2026-10-29] Chạy lại sau khi sửa: audio hết rè (WER trung vị 12.5 %), còn 1/40 lỗi copy
+
+**File:** `NHAT_KY_DANH_GIA_CHAT_LUONG_AM_THANH.md` (thêm Mục 6.8, B9, cập nhật 7.1 + banner), `s2st_results_package/` (thay bằng kết quả lần chạy mới — gitignored)
+
+Lần chạy đầu tiên sau khi vá B1–B8 (Kaggle T4, 40 clip, identity map, `train == dev`):
+
+- **Pipeline:** tải đủ 4 model (SHA-256 khớp); cổng round-trip **87.1 %** (482 → 481 frame); 3000 updates / 1483.8 s; train loss **0.004**, valid **0.007**; suy luận đổi tên đủ **40/40** theo `sample_id`.
+- **Tầng units:** 39/40 khớp tuyệt đối GT (token accuracy 100 %), không dòng rỗng. **1 lỗi:** câu index 24 sinh trùng câu index 8 ⇒ `model_output/sample_24` (LJ001-0025) chứa nội dung LJ001-0012 → ghi thành **B9** (chưa sửa).
+- **WER** (faster-whisper `base.en` int8, transcript LJSpeech gốc): LJ gốc **7.0 %** mean / 4.0 % median (trần ASR); GT-units→HiFi-GAN **10.5 %** / 11.1 %; model S2UT **15.4 %** / **12.5 %**, 0/40 hypothesis rỗng. Bỏ file lỗi copy: 13.2 % / 12.0 %.
+- **So với gói cũ** (94.7 % / 90.2 %, 8/40 rỗng): WER trung bình giảm **~6×**. Audio không còn câm (RMS 0.098–0.136, peak 0.725–0.949); model ngắn hơn GT ~8 % (tỉ lệ 0.92) do dùng `dur_prediction=True`.
+- **Cảnh báo còn lại:** `MiniBatchKMeans` pickle sklearn 0.24 unpickle bằng 1.7.2 (`InconsistentVersionWarning`) — nên ghim phiên bản; chưa có MOS người nghe.
+
+---
+
+## [2026-10-29] Sửa hằng số SHA-256 bị cụt làm Mục 2 không tải được k-means trên Kaggle
+
+**File:** `s2st-fairseq.ipynb` (Mục 2 — `EXPECTED_SHA256`), `verify_nb.py`, nhật ký Mục 7 (B8)
+
+Kaggle báo `KHÔNG thể tải ...hubert_base_ls960_L6_km100.bin từ bất kỳ URL nào` dù URL chính thức trả HTTP 200 (308469 bytes) và 3 model còn lại vẫn tải bình thường.
+
+- **Nguyên nhân:** hằng số `EXPECTED_SHA256` bị thiếu 1 ký tự (**63** hex thay vì 64) → sau mỗi lần tải, `_sha256()` không bao giờ khớp → file bị xoá và thử URL kế tiếp → hết URL thì `raise`. Lỗi nằm ở hằng số, **không phải mạng**.
+- **Sửa:** hash đúng `f14a3104615485381fc489701d6761c9abbdbb0d43607cf55518a1e2891023fe` (đã kiểm chứng bằng cách tải lại file và tự tính SHA-256); thêm `assert all(len(v) == 64 ...)` để typo kiểu này chết ngay trước khi tải; thông điệp lỗi thêm gợi ý "log ghi sha256 KHÔNG khớp nhiều lần ⇒ hằng số sai".
+- **Không đụng môi trường/model:** cell 1–5 (cài fairseq, torch, phiên bản) giữ nguyên byte-for-byte so với bản đang chạy được.
+- **Test:** chạy lại logic `download_file` với file k-means thật — tải mới OK, chạy lần 2 in "sha256 OK" không tải lại, file rác bị phát hiện và thay bằng bản đúng.
+
+---
+
 ## [2026-10-29] Dọn repo: xoá script/artefact chẩn đoán, chốt danh mục lỗi vào tài liệu
 
 **File:** `.gitignore`, `README.md`, `NHAT_KY_DANH_GIA_CHAT_LUONG_AM_THANH.md` (thêm Mục 7), xoá 9 script, 5 thư mục chẩn đoán và 1 tài liệu trùng
@@ -59,7 +86,7 @@ Phân tích toàn diện (xem các script `analyze_*.py`, `*_asr*.json`, `compar
 ### URL chính thức hợp lệ (đã kiểm chứng HTTP 200, 308469 bytes)
 `https://dl.fbaipublicfiles.com/textless_nlp/gslm/hubert/km100/km.bin`
 (ghi trong `fairseq/examples/textless_nlp/pgslm/README.md`). SHA-256:
-`f14a3104615485381fc489701d6761c9abdbb0d43607cf55518a1e2891023fe`
+`f14a3104615485381fc489701d6761c9abbdbb0d43607cf55518a1e2891023fe`
 
 ### Thay đổi trong Cell 6
 - **Đổi URL k-means** sang bản chính thức `km100/km.bin`; **bỏ hẳn** fallback `yfyeung` (danh sách fallback rỗng).

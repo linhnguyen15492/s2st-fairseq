@@ -2,16 +2,15 @@
 
 ## Đề tài: Direct Speech-to-Speech Translation with Discrete Units (Fairseq S2UT)
 
-* **Ngày thực hiện:** 26/10/2026 — **cập nhật 29/10/2026** (phân tích gói kết quả + sửa notebook, xem Mục 6.7).
-* **Đối tượng phân tích:** Luồng huấn luyện và suy luận mô hình S2UT trong notebook Kaggle (`s2st_fairseq_demo.ipynb`, sau đó là `s2st_results_package/`) đối chiếu với tài liệu gốc bài báo ([Lee et al., 2021](https://arxiv.org/abs/2107.05604)) và tài liệu kỹ thuật [`direct_s2st_discrete_units.md`](file:///d:/workspace/s2st-fairseq/direct_s2st_discrete_units.md).
+* **Ngày thực hiện:** 26/10/2026 — **cập nhật 29/10/2026** (phân tích gói kết quả, sửa notebook — Mục 6.7; chạy lại và đo kết quả — Mục 6.8).
+* **Đối tượng phân tích:** Luồng huấn luyện và suy luận mô hình S2UT trong notebook Kaggle (`s2st_fairseq_demo.ipynb`, sau đó là `s2st_results_package/`) đối chiếu với tài liệu gốc bài báo ([Lee et al., 2021](https://arxiv.org/abs/2107.05604)) và tài liệu kỹ thuật [`docs/direct_s2st_discrete_units.md`](fairseq/examples/speech_to_speech/docs/direct_s2st_discrete_units.md).
 * **Notebook khắc phục:** Giải pháp trong Mục 4 đã triển khai trong **`s2st-fairseq.ipynb`**; ba lỗi của bản chạy mới (k-means sai label space, lệch thứ tự file, fallback unit rỗng) đã sửa bằng **cổng kiểm tra Mục 3.2** + đặt tên file theo `sample_id` (xem Mục 6.7).
 * **Vấn đề ghi nhận từ Giảng viên:** *"Demo gốc của bài nghe khá rõ lời nói, còn demo em chạy lại trên kaggle thì nó rất khó nghe."*
 
-> 📌 **Đọc Mục 6.7 trước nếu chỉ cần nguyên nhân của gói kết quả hiện tại.**
-> Mục 1–5 dưới đây là chẩn đoán cho bản smoke-test cũ (sóng sin + 20 updates). Bản chạy mới
-> (32 clip LJSpeech, 2994 updates, loss 0.006) **đã hội tụ**, nhưng audio vẫn rè vì **file k-means
-> sai label space** và **lỗi ghép thứ tự file** — hai lỗi này chỉ được phát hiện và sửa trong
-> đợt review 29/10/2026, ghi ở Mục 6.7.
+> 📌 **Đọc Mục 6.7 → 6.8 nếu chỉ cần trạng thái hiện tại.**
+> Mục 1–5 dưới đây là chẩn đoán cho bản smoke-test cũ (sóng sin + 20 updates). Bản chạy 32 clip
+> (2994 updates) **đã hội tụ** nhưng vẫn rè vì **file k-means sai label space** và **lỗi ghép thứ tự file**.
+> Hai lỗi đó đã sửa (Mục 6.7) và **đã chạy lại, đo được WER trung vị 12.5 %** — audio hết rè, xem Mục 6.8.
 
 ---
 
@@ -266,12 +265,47 @@ Mọi clip vào **cả** `train` và `dev`, `src = tgt`. Đây không phải spl
 #### Còn lại (chưa làm, cần biết khi báo cáo)
 
 1. **Identity map** (src = tgt) và **train == dev** vẫn giữ nguyên → audio model ≈ tái tạo, **không** phải dịch.
-2. `--dur-prediction` làm nhịp nói **nhanh hơn ~5–7 %** (đo tỉ lệ độ dài 0.926–1.057) — bình thường với giọng tổng hợp, nhưng khi so sánh thời lượng phải trừ hao.
+2. `--dur-prediction` làm nhịp nói **ngắn hơn ~8 %** (đo tỉ lệ độ dài model/GT: trung vị **0.92**, 0.82–1.02) — bình thường với giọng tổng hợp, nhưng khi so sánh thời lượng phải trừ hao.
 3. Cổng Mục 3.2 là kiểm tra **label space**, không phải kiểm tra độ thông hiểu; muốn chấm điểm nghe phải chạy ASR như 6.7 (faster-whisper chưa cài trong venv 3.10 của notebook).
-4. Gói cũ trong `s2st_results_package/` vẫn mang số liệu sai (do 2 lỗi trên) — cần chạy lại notebook mới rồi mới đóng gói lại.
+4. ~~Gói cũ trong `s2st_results_package/` vẫn mang số liệu sai~~ → đã chạy lại 29/10 và thay gói; số liệu mới ở **6.8**.
+
+### 6.8 Kết quả lần chạy sau khi sửa (29/10/2026, Kaggle T4)
+
+Chạy lại toàn bộ notebook sau khi vá B1–B8; gói `s2st_results_package/` hiện tại là kết quả **của lần chạy này** (40 clip, `train == dev`, identity map).
+
+**Sức khoẻ pipeline (log trong notebook):**
+
+| Bước | Số đo | Kết luận |
+| :--- | :--- | :--- |
+| Mục 2 — tải model | 4/4 file, k-means từ `km100/km.bin`, SHA-256 khớp | B8 đã hết |
+| Mục 3.2 — cổng round-trip | LJ001-0001: 482 → 481 frame, **87.1 %** frame khớp | ĐẠT (ngưỡng 50 %) |
+| Mục 4 — train | 3000 updates, 1483.8 s, train loss **0.004**, valid **0.007**, ppl 1, gnorm 0.274 | Hội tụ |
+| Mục 5.1 — suy luận | 40 wav, ghép cặp **40/40** theo `<sample_id>_pred.wav` | B2 đã hết |
+
+**Tầng units:** 40/40 dòng `D-` đủ index 0–39, **không dòng rỗng** (B3 đã hết); **39/40 khớp tuyệt đối** GT sau dedup, token accuracy **100 %**.
+Chỉ 1 lỗi: câu index **24** sinh y hệt câu index **8** (212 unit, score −6.0e-05) ⇒ `model_output/sample_24` (LJ001-0025) chứa nội dung **LJ001-0012**.
+
+**Tầng audio — WER (faster-whisper `base.en`, int8, beam 1; transcript LJSpeech gốc; ghép cặp theo `sample_id`):**
+
+| Nguồn | WER mean | WER median | ≤ 15 % | Rỗng |
+| :--- | ---: | ---: | ---: | ---: |
+| LJSpeech gốc (**trần của ASR**) | 7.0 % | 4.0 % | 34/40 | 0/40 |
+| GT-units → HiFi-GAN (`reference_gt_units/`) | 10.5 % | 11.1 % | 26/40 | 0/40 |
+| Model S2UT (`model_output/`) | **15.4 %** | **12.5 %** | 23/40 | 0/40 |
+| Model, bỏ 1 file lỗi copy | 13.2 % | 12.0 % | 23/39 | — |
+| *Gói cũ (6.7)* | *94.7 %* | *90.2 %* | — | *8/40* |
+
+**Audio không còn hỏng:** 40 file model, RMS **0.098–0.136**, peak **0.725–0.949**, không file câm; tổng 253.4 s so với GT 274.8 s.
+**Diễn giải:** model chỉ kém bản vocode GT-units **+1.4 điểm median**; khoảng cách còn lại so với LJ gốc (+8.5 điểm) chủ yếu thuộc **vocoder 16 kHz (hop 320)**, không phải S2UT. So với gói cũ, WER trung bình giảm **~6×**.
+
+**Còn tồn tại (ghi để không tuyên bố quá):**
+1. **1/40 mẫu copy nhầm** (index 24 ← index 8) — lỗi decode/model, mapping id vẫn đúng (39/40 file khớp đúng câu nguồn). Muốn truy vết phải có checkpoint (309 MB/file, không nằm trong ZIP).
+2. **Cảnh báo sklearn** khi unpickle `MiniBatchKMeans` 0.24 bằng 1.7.2 (`InconsistentVersionWarning`); lần này vẫn đúng nhờ cổng 87.1 %, nhưng nên ghim phiên bản.
+3. ASR `base.en` tự thân đã sai **7 %** trên LJ gốc ⇒ WER ở đây là thang **tương đối**; chưa có MOS do người nghe.
+4. Vẫn là **identity map, train == dev** — số trên là trần chất lượng pipeline, không phải khả năng dịch.
 
 ---
-*Cập nhật 29/10/2026 — review `s2st-fairseq.ipynb` vs `fairseq/examples/speech_to_speech`, kèm pháp chứng `s2st_results_package` (k-means label space + thứ tự file).*
+*Cập nhật 29/10/2026 — review `s2st-fairseq.ipynb` vs `fairseq/examples/speech_to_speech`, kèm pháp chứng `s2st_results_package` (k-means label space + thứ tự file), và kết quả đo lại sau khi sửa (6.8).*
 
 ---
 
@@ -288,11 +322,14 @@ Bảng tra ngược: **thấy triệu chứng gì → lỗi nào → đã sửa 
 | **B5** | Tài liệu / checker báo sai sau khi thêm–bớt cell | Tham chiếu **index cell cứng** (`cells[23]`, "Cell 14"…) | `python verify_nb.py` FAIL | Tham chiếu theo **Mục** (3.1, 3.2, 5.1…), không theo số cell |
 | **B6** | Báo cáo ghi "MOS ~4.0" nhưng chưa ai đo MOS | Sao chép số của bài báo cho thí nghiệm resynthesis trên Fisher | — | Mục 5.2 đã bỏ tuyên bố, chỉ nói "kiểm chứng khâu units → wav" |
 | **B7** | Verifier vẫn PASS dù notebook đã hỏng | Check chỉ đếm cấu trúc, không kiểm nội dung | — | `verify_nb.py`: 32 check theo nội dung (URL, sha256, cổng, rename, raise) |
+| **B8** | Kaggle báo `KHÔNG thể tải ...hubert_base_ls960_L6_km100.bin từ bất kỳ URL nào` dù mạng tốt, 3 model còn lại vẫn tải được | Hằng số `EXPECTED_SHA256` bị **thiếu 1 ký tự** (63 hex) → lần tải nào cũng bị coi là "sha256 KHÔNG khớp", file bị xoá ngay rồi `raise` | So `len(constant)`; log in ra `mong f14a3104...` cắt cụt | Mục 2: hash đúng 64 ký tự + `assert len(v) == 64` + gợi ý chẩn đoán trong thông điệp lỗi |
+| **B9** | Một file output chứa **nội dung câu khác** (1/40 ở lần chạy 29/10) | Model sinh **trùng chuỗi unit** cho 2 đầu vào khác nhau (index 24 ← index 8); phần còn lại khớp 100 % | ASR rồi so best-match với toàn bộ transcript nguồn (1/40 lệch), hoặc đếm chuỗi unit trùng trong `generate-dev.unit` | Chưa sửa — đã ghi nhận ở 6.8; cần checkpoint để truy vết |
 
 ### 7.1 Chẩn đoán audio nhanh (đúng thứ tự)
 
 1. `python verify_nb.py` → notebook đúng cấu trúc + đủ check nội dung.
-2. Chạy **Mục 3.2** trên Kaggle: cổng ĐẠT (kỳ vọng ~85 % frame khớp) nghĩa là units ↔ vocoder khớp label space. Nếu FAIL → sai file k-means, đừng train.
+2. Chạy **Mục 3.2** trên Kaggle: cổng ĐẠT (kỳ vọng 85–87 % frame khớp) nghĩa là units ↔ vocoder khớp label space. Nếu FAIL → sai file k-means, đừng train.
+   * Nếu **Mục 2** báo `KHÔNG thể tải ...` trong khi mạng vẫn tốt (các model khác tải được): tìm dòng `sha256 KHÔNG khớp` trong log — đó là hằng số `EXPECTED_SHA256` sai (B8), không phải lỗi mạng.
 3. Nếu audio vẫn rè: vocode **`reference_gt_units/`** (ground-truth units, bỏ model S2UT ra khỏi phương trình). Reference cũng rè ⇒ lỗi ở tầng units/vocoder, **không phải** model.
 4. Đo độ thông hiểu bằng ASR (cần `pip install faster-whisper`, ~1 phút):
 
@@ -303,7 +340,7 @@ Bảng tra ngược: **thấy triệu chứng gì → lỗi nào → đã sửa 
    print(" ".join(s.text.strip() for s in segs))
    ```
 
-   Thang tham chiếu (đo trên 40 clip LJSpeech): LJ gốc 0 %; km100 + HiFi-GAN **4–8 %**; mirror **~95 %**.
+   Thang tham chiếu (40 clip LJSpeech, `base.en`): LJ gốc **7 %** (trần ASR); GT-units + HiFi-GAN **10–11 %**; model sau khi sửa **12–15 %**; mirror `yfyeung` **~95 %**.
 5. **Chỉ tin metric ghép cặp** khi cả hai thư mục đều đặt tên `<sample_id>_pred.wav` (Mục 5.1).
 
 ### 7.2 Dấu vết đã dọn (29/10/2026)
