@@ -8,7 +8,8 @@ Dự án cung cấp pipeline hoàn chỉnh cho mô hình **Direct Speech-to-Spee
 * **Kiến trúc Direct S2ST:** Âm thanh nguồn (Source Speech) ➡️ S2UT Transformer ➡️ Mã Discrete Units (HuBERT) ➡️ HiFi-GAN Vocoder ➡️ Âm thanh đích (Target Speech `.wav`).
 * **Modular Python Functions:** Gọi trực tiếp các API nội bộ của Fairseq thay vì lạm dụng shell scripts (`!python examples/...`, `grep | sed | cut`).
 * **Hỗ trợ đa nền tảng:** Tương thích Windows, Linux, Google Colab và Kaggle GPU T4.
-* **Tự động xử lý lỗi:** Hỗ trợ mirror HuggingFace khi link Facebook CDN bị 403, tự tạo manifest TSV chuẩn và xử lý kích thước batch nhỏ với `--required-batch-size-multiple 1`.
+* **Tự động xử lý lỗi:** Kiểm tra **SHA-256** cho file k-means và **không** fallback sang mirror k-means khác (mirror gom cùng cụm nhưng nhãn bị hoán vị → vocoder sinh tiếng rè); tự tạo manifest TSV chuẩn và xử lý kích thước batch nhỏ với `--required-batch-size-multiple 1`.
+* **Cổng kiểm tra trước khi train:** Mục 3.2 của notebook round-trip `wav → units → wav → units` trên 1 clip để chắc chắn units và vocoder cùng "label space" trước khi tốn thời gian huấn luyện.
 
 ---
 
@@ -66,6 +67,12 @@ pip install --editable ./ --no-build-isolation
 
 ## 📓 Chạy Notebook Demo
 
-1. Mở notebook [`s2st_fairseq_demo.ipynb`](s2st_fairseq_demo.ipynb) trong **VS Code** hoặc **Jupyter Lab**.
-2. Ở góc trên bên phải, bấm vào nút chọn **Kernel** và chọn: **`Python 3.12 (s2st-fairseq)`**.
-3. Chạy lần lượt các cell từ trên xuống dưới để trải nghiệm toàn bộ pipeline từ tải mô hình, chuẩn bị dữ liệu, huấn luyện đến sinh file âm thanh `.wav`.
+1. Mở notebook **[`s2st-fairseq.ipynb`](s2st-fairseq.ipynb)** trong **Kaggle** (khuyến nghị: GPU T4 + Internet ON) hoặc VS Code / Jupyter.
+2. Chạy lần lượt từ trên xuống: môi trường Python 3.10 → tải model → dữ liệu LJSpeech → trích units → **cổng kiểm tra (Mục 3.2)** → chuẩn bị S2UT → train → suy luận → nghe → đóng gói ZIP.
+3. Bản cũ `s2st_fairseq_demo.ipynb` chỉ giữ làm mốc lịch sử (bản smoke-test sóng sin 20 updates, phân tích ở `NHAT_KY_DANH_GIA_CHAT_LUONG_AM_THANH.md` Mục 1–5) — **không dùng để chạy**.
+
+---
+
+## 🩺 Gặp lỗi âm thanh rè / khó nghe?
+
+Xem **Mục 7 — Danh mục lỗi đã gặp** trong [`NHAT_KY_DANH_GIA_CHAT_LUONG_AM_THANH.md`](NHAT_KY_DANH_GIA_CHAT_LUONG_AM_THANH.md): bảng tra theo triệu chứng → nguyên nhân gốc → cách phát hiện → đã sửa ở đâu, kèm quy trình chẩn đoán nhanh (cổng round-trip + ASR WER).

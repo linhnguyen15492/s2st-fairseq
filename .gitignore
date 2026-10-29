@@ -218,3 +218,24 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# ---------------------------------------------------------------------------
+# S2ST Fairseq runtime artifacts (không commit: tải lại / sinh lại được)
+# ---------------------------------------------------------------------------
+_proofenv/
+_proof_models/
+_proof_run/
+_km/
+_orig_ljs/
+pretrained_models/
+speech_dataset/
+real_speech_sample/
+results/
+checkpoints/
+s2st_results_package/
+
+# Notebook / patch tạm
+*.bak
+.ipynb_checkpoints/
+_nb_overview.py
+_patch_*.py

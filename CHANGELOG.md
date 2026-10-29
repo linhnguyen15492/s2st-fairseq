@@ -4,6 +4,88 @@ Tất cả chỉnh sửa mã nguồn/notebook của dự án S2ST Fairseq đều
 
 ---
 
+## [2026-10-29] Dọn repo: xoá script/artefact chẩn đoán, chốt danh mục lỗi vào tài liệu
+
+**File:** `.gitignore`, `README.md`, `NHAT_KY_DANH_GIA_CHAT_LUONG_AM_THANH.md` (thêm Mục 7), xoá 9 script, 5 thư mục chẩn đoán và 1 tài liệu trùng
+
+Mục đích: repo không còn rối, nhưng **mọi lỗi vẫn tra được** — chi tiết số liệu giữ ở nhật ký Mục 6.7, danh mục tra cứu theo triệu chứng ở Mục 7.
+
+- **Xoá script dùng một lần**: `create_notebook.py`, `apply_zip_fix.py`, `fix_zip_v2.py`, `test_zip_cell.py`, `run_s2st_exp.py` (đã áp dụng / đã bị notebook thay thế), `_patch_km.py`, `_proof_download.py`, `_nb_overview.py`, `_test_fairseq_import.py`.
+- **Xoá script phân tích** (số liệu đã chốt trong nhật ký Mục 6.7): `analyze_package.py`, `analyze_mapping.py`, `analyze_stoi.py`, `stoi_vs_original.py`, `control_asr.py`, `asr_intelligibility.py`, `compare_kmeans.py`, `proof_ab_kmeans.py`.
+- **Xoá artefact/venv tải lại được** (~2,3 GB): `_proofenv/`, `_proof_models/`, `_proof_run/`, `_orig_ljs/`, `_km/`.
+- **Xoá bản trùng ở root**: `direct_s2st_discrete_units.md` — giống từng dòng (khác mỗi CRLF) với `fairseq/examples/speech_to_speech/docs/direct_s2st_discrete_units.md`, nên bản gốc trong `docs/` vẫn là nguồn duy nhất.
+- **Giữ** `s2st_results_package/` (bằng chứng "trước khi sửa" cho Mục 6.7), `s2st_fairseq_demo.ipynb` (bản smoke-test cũ, đối tượng phân tích Mục 1–5) và `fairseq/examples/speech_to_speech/FLOW.md` (tài liệu luồng end-to-end, được nhật ký trích dẫn).
+- **`.gitignore`**: thêm mục "S2ST Fairseq runtime artifacts" (`_proof*`, `_km/`, `_orig_ljs/`, `pretrained_models/`, `speech_dataset/`, `results/`, `checkpoints/`, `real_speech_sample/`, `s2st_results_package/`, `*.bak`, `.ipynb_checkpoints/`) để lần chạy sau không làm bẩn `git status`.
+- **`README.md`**: bỏ quảng cáo "hỗ trợ mirror HuggingFace khi CDN 403" (chính là B1), trỏ notebook demo sang `s2st-fairseq.ipynb`, thêm mục tra cứu lỗi.
+- **Nhật ký**: thêm **Mục 7 — Danh mục lỗi (B1–B7)** kèm quy trình chẩn đoán nhanh 5 bước (cổng round-trip → reference GT → ASR WER → chỉ tin metric khi tên file khớp).
+
+---
+
+## [2026-10-29] Chặn tận gốc 2 lỗi làm audio sai: cổng kiểm tra units ↔ vocoder + đặt tên file theo sample_id
+
+**File:** `s2st-fairseq.ipynb` (24 → 26 cell), `NHAT_KY_DANH_GIA_CHAT_LUONG_AM_THANH.md` (Mục 6.7), `verify_nb.py`
+
+Sau khi sửa k-means (mục dưới), rà lại `s2st_results_package/` phát hiện thêm 2 lỗi khiến mọi metric trong gói vô nghĩa, và thêm cơ chế chặn tự động:
+
+- **P0 — Cổng kiểm tra mới ở Mục 3.2** (`verify_unit_vocoder_roundtrip`): round-trip `wav → units → wav → units` trên 1 clip LJSpeech, đo % frame khớp; `< 50%` thì `raise` với thông điệp chỉ đúng file k-means. Đo thực tế: `km100/km.bin` = **85.3 %** (ĐẠT), mirror `yfyeung` = **0.0 %** (bị chặn). Chạy trước Mục 4 nên không mất ~30 phút train.
+- **P1 — Thứ tự file:** `create_wav_manifest` chuyển sang **natural sort** (`sample_0, sample_1, …, sample_10`), trước đây `sorted(glob)` cho thứ tự lexicographic lệch với `prep_s2ut_data.py` (thứ tự filesystem) → `model_output/7_pred.wav` và `reference_gt_units/7_pred.wav` là 2 câu khác nhau (hoán vị 0→36, 1→11, 2→27; kiểm chứng 40/40 bằng độ dài).
+- **P1 — Đặt tên theo id:** thêm `rename_pred_by_id()`; wav kết quả đổi thành `<sample_id>_pred.wav` (model: id đọc từ `dev.tsv`; GT: id giữ từ tiền tố `dev.txt`). Hai thư mục ghép cặp được theo tên, không phụ thuộc thứ tự.
+- **P2 — Bỏ fallback unit rỗng:** `extract_units_from_log` không ghi `'0'` thay hypothesis rỗng nữa mà `raise` (trước đây che lỗi model chưa hội tụ, vocoder vẫn "ra tiếng").
+- **P2 — Trung thực khi báo cáo:** Mục 5.2 bỏ tuyên bố "MOS ~4.0", ghi rõ đây chỉ là kiểm chứng khâu units → wav; README trong ZIP ghi `%` round-trip.
+- `verify_nb.py` cập nhật index cell (26 cell) + thêm 12 check cho cổng kiểm tra, rename, natural sort, raise-khi-rỗng.
+
+Bằng chứng trong `NHAT_KY...` Mục 6.7: WER (faster-whisper `base.en`) của units trích bằng `km100/km.bin` = **4.2 % trung vị** (0/40 rỗng), mirror = **94.6 %** (2/40 rỗng), model_output trong gói = **90.2 %** (8/40 rỗng).
+
+---
+
+## [2026-10-29] FIX NGUYÊN NHÂN GỐC audio rè/mờ: dùng sai file k-means (Cell 6) — KHÔNG cần tăng epochs
+
+**File:** `s2st-fairseq.ipynb` (Cell 6 — `MODEL_URLS` / `download_file`)
+
+### Kết luận điều tra chất lượng âm thanh trong `s2st_results_package/`
+Phân tích toàn diện (xem các script `analyze_*.py`, `*_asr*.json`, `compare_kmeans.py`) cho thấy **model S2UT đã hội tụ hoàn toàn**, việc tăng số vòng huấn luyện **không giải quyết được gì**:
+- `train.log`: valid loss 8.873 → **0.002** (ppl 1) tại update 3000; loss train ~0.005, gnorm 0.14.
+- `generate-dev.txt`: **39/40 câu khớp EXACT** ground-truth units; token accuracy **0.986**; length ratio 1.000. Identity map đã học được.
+- `AUDIO_STATS.csv` + phân tích: **0 file trùng lặp** → mode-collapse đã bị loại bỏ (khác lần chạy trước).
+- `reference_gt_units/` (GT units → HiFi-GAN, **không qua model S2UT**) cũng **nghèo/nhiễn y hệt**: Whisper WER vs LJSpeech gốc ~176%, STOI ~0.43 ≈ baseline xáo trộn (~0.45). Nghĩa là đường gọi vocoder "sạch" đã hỏng từ trước khi model dự đoán.
+
+→ **Audio hỏng nằm ở tầng discrete units/vocoder, không phải ở mô hình S2UT.**
+
+### Nguyên nhân gốc: sai file k-means (nhãn cụm bị hoán vị)
+- Cell 6 tải k-means từ URL `.../textless_nlp/gslm/hubert/hubert_base_ls960_L6_km100.bin` → **HTTP 403**, sau đó **âm thầm** fall-back sang mirror `yfyeung/kmeans-librispeech-hubert-base` (`hubert-base-layer-6.kmeans.100.model`).
+- So trực tiếp 2 file k-means (`compare_kmeans.py`, `_km/`): cùng shape (100×768), nhưng **nhãn cụm bị hoán vị** — cosine cùng index chỉ **0.199**, chỉ **~1% cụm** nằm đúng vị trí; cosine tốt nhất mọi cặp **0.918** (nghĩa là *cùng* cụm âm học nhưng *khác* nhãn).
+- Vocoder HiFi-GAN `hubert_base_100_lj` (config `num_embeddings 100`, `code_hop_size 320`, `sampling_rate 16000`) được huấn luyện kèm **bản k-means chính thức**. feeding nhãn sai → embedding sai theo hoán vị → sinh âm thanh rè/mờ, mất lời.
+
+### URL chính thức hợp lệ (đã kiểm chứng HTTP 200, 308469 bytes)
+`https://dl.fbaipublicfiles.com/textless_nlp/gslm/hubert/km100/km.bin`
+(ghi trong `fairseq/examples/textless_nlp/pgslm/README.md`). SHA-256:
+`f14a3104615485381fc489701d6761c9abdbb0d43607cf55518a1e2891023fe`
+
+### Thay đổi trong Cell 6
+- **Đổi URL k-means** sang bản chính thức `km100/km.bin`; **bỏ hẳn** fallback `yfyeung` (danh sách fallback rỗng).
+- **`download_file()` thêm kiểm tra SHA-256** (`expected_sha256`): file sai bị **xoá ngay**, không dùng; nếu không khớp thì thử URL tiếp theo/không im lặng dùng bản sai.
+- Gắn `EXPECTED_SHA256` cho file k-means; các model khác (vocoder, HuBERT) giữ nguyên (không ép hash để tránh vỡ nếu server đổi đuôi).
+- Thông báo lỗi cuối rõ ràng: hướng dẫn bật Internet trên Kaggle, và **cấm** thay mirror k-means khác (nhãn hoán vị → audio rè).
+
+### Bằng chứng quyết định (thí nghiệm A/B, chạy local — xem `proof_ab_kmeans.py` / `_proof_run/proof_result.json`)
+Cùng 40 clip LJSpeech gốc → trích HuBERT layer-6 units bằng **(A) k-means chính thức** vs **(B) k-means mirror** → vocode cả hai bằng **cùng** HiFi-GAN → đo Whisper WER vs audio gốc:
+- **(A) Chính thức: WER thấp (audio rõ lời)** vs **(B) Mirror: WER cao (audio rè/mờ)**.
+- Unit map chính thức→mirror là **hoán vị nhất quán** (mỗi unit official luôn đổi thành 1 unit mirror xác định) → khẳng định mirror chỉ *đổi nhãn*, làm sai hoàn toàn vocoder.
+
+### Quyết định: KHÔNG tăng số vòng huấn luyện
+- Model đã hội tụ (valid loss 0.002, 39/40 exact). Thêm epochs chỉ tốn thời gian, không đổi chất lượng.
+- **Việc cần làm là sửa file k-means rồi TRAIN LẠI** (vì units sinh ra trước đó dùng sai codebook → đầu vào train cũng sai). `max_update=3000` giữ nguyên (~24 phút trên T4).
+
+### Hướng dẫn chạy lại trên Kaggle (thứ tự)
+1. Bật **Internet ON**.
+2. Chạy lại từ **Mục 2** (tải models — sẽ lấy k-means chính thức + verify hash).
+3. **Mục 3** (dữ liệu) → **Mục 3.1** (trích units bằng codebook đúng) → **Mục 3.2** (cổng kiểm tra) → **Mục 3.3** (chuẩn bị S2UT).
+4. **Mục 4** train lại với `max_update=3000` (KHÔNG tăng thêm).
+5. **Mục 5.1** (suy luận) → **Mục 5.2** (resynthesis) → **Mục 5.3** (ZIP).
+6. Nghe `model_output/` và `reference_gt_units/`: cả hai giờ phải **rõ lời** (vocoder nay nhận đúng nhãn).
+
+---
+
 ## [2026-10-28] Nhóm B — Sửa pipeline huấn luyện để identity map hội tụ (fix audio "rất khó nghe")
 
 **File:** `s2st-fairseq.ipynb`
